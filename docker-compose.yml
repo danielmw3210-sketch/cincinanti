@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  ai-crypto-trader:
+    build: .
+    container_name: ai-crypto-trader
+    restart: unless-stopped
+    environment:
+      - KRAKEN_API_KEY=${KRAKEN_API_KEY}
+      - KRAKEN_SECRET_KEY=${KRAKEN_SECRET_KEY}
+      - KRAKEN_SANDBOX=${KRAKEN_SANDBOX:-true}
+      - DEFAULT_PAIR=${DEFAULT_PAIR:-BTC/USD}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./.env:/app/.env
+    command: python main.py start
+    networks:
+      - trader-network
+
+  # Optional: Add monitoring with Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trader-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - trader-network
+
+  # Optional: Add time-series database
+  influxdb:
+    image: influxdb:2.0
+    container_name: trader-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_ORG=trader
+      - DOCKER_INFLUXDB_INIT_BUCKET=trading_data
+    volumes:
+      - influxdb-storage:/var/lib/influxdb2
+    networks:
+      - trader-network
+
+volumes:
+  grafana-storage:
+  influxdb-storage:
+
+networks:
+  trader-network:
+    driver: bridge

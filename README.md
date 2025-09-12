@@ -1,294 +1,273 @@
-# Cincinnatus Life Tracker - Express Backend
+# AI Crypto Trader for Kraken Pro
 
-A comprehensive Express.js backend for tracking your life with prompts to follow, designed specifically for business professionals and life optimization enthusiasts.
+A sophisticated AI-powered cryptocurrency trading bot that integrates with Kraken Pro exchange. This system uses machine learning models to analyze market data, generate trading signals, and execute trades with comprehensive risk management.
 
 ## 🚀 Features
 
-- **Life Tracking**: Daily entries with mood, energy, productivity, and stress tracking
-- **Prompt System**: Curated prompts for business, personal growth, health, and more
-- **Goal Management**: Set and track short-term, medium-term, and long-term goals
-- **Business Analytics**: Track revenue, customers, projects, and business metrics
-- **Personal Analytics**: Monitor health, relationships, learning, and personal growth
-- **User Management**: Secure authentication with JWT and role-based access control
-- **Comprehensive API**: RESTful API with validation, pagination, and error handling
-
-## 🏗️ Architecture
-
-- **Framework**: Express.js with Node.js
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT with bcrypt password hashing
-- **Validation**: Express-validator for input validation
-- **Security**: Helmet, CORS, rate limiting, and security middleware
-- **File Structure**: Modular architecture with separate routes, models, and middleware
+- **AI-Powered Trading**: Ensemble ML models (Random Forest, Gradient Boosting, Logistic Regression)
+- **Real-time Market Analysis**: Technical indicators, pattern recognition, sentiment analysis
+- **Risk Management**: Position sizing, stop losses, take profits, drawdown protection
+- **Kraken Pro Integration**: Full API integration with sandbox and live trading support
+- **Monitoring & Alerts**: Comprehensive logging, webhook alerts, performance tracking
+- **Portfolio Management**: Real-time portfolio tracking and performance metrics
 
 ## 📋 Prerequisites
 
-- Node.js (v16 or higher)
-- MongoDB (local or cloud instance)
-- npm or yarn package manager
+- Python 3.8 or higher
+- Kraken Pro API credentials
+- Basic understanding of cryptocurrency trading
 
 ## 🛠️ Installation
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
-   cd cincinnatus-server
+   git clone <repository-url>
+   cd ai-crypto-trader
    ```
 
 2. **Install dependencies**
    ```bash
-   npm install
+   pip install -r requirements.txt
    ```
 
-3. **Environment Setup**
+3. **Set up environment variables**
    ```bash
-   # Copy environment file
-   cp env.example .env
-   
-   # Edit .env with your configuration
-   nano .env
+   cp .env.example .env
+   # Edit .env with your Kraken API credentials
    ```
 
-4. **Database Setup**
-   - Ensure MongoDB is running
-   - Update `MONGODB_URI` in your `.env` file
-   - The database will be created automatically on first run
-
-5. **Start the server**
+4. **Create necessary directories**
    ```bash
-   # Development mode with auto-reload
-   npm run dev
-   
-   # Production mode
-   npm start
+   mkdir -p logs models
    ```
 
-## ⚙️ Environment Variables
+## ⚙️ Configuration
 
-Create a `.env` file in the root directory:
+### Environment Variables (.env)
 
 ```env
-# Server Configuration
-PORT=3000
-NODE_ENV=development
+# Kraken API Configuration
+KRAKEN_API_KEY=your_api_key_here
+KRAKEN_SECRET_KEY=your_secret_key_here
+KRAKEN_SANDBOX=true
 
-# Database Configuration
-MONGODB_URI=mongodb://localhost:27017/cincinnatus-life-tracker
+# Trading Configuration
+DEFAULT_PAIR=BTC/USD
+INITIAL_BALANCE=1000
+MAX_POSITION_SIZE=0.1
+RISK_PER_TRADE=0.02
 
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_EXPIRES_IN=7d
+# AI Model Configuration
+MODEL_TYPE=ensemble
+RETRAIN_INTERVAL=24
+FEATURE_WINDOW=100
 
-# Security Configuration
-BCRYPT_ROUNDS=12
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+# Monitoring
+LOG_LEVEL=INFO
+WEBHOOK_URL=https://hooks.slack.com/services/...
+ALERT_EMAIL=your-email@example.com
 
-# File Upload Configuration
-MAX_FILE_SIZE=5242880
-UPLOAD_PATH=./uploads
+# Safety
+EMERGENCY_STOP=false
+MAX_DAILY_LOSS=0.05
 ```
 
-## 🗄️ Database Models
+### Kraken API Setup
 
-### User
-- Personal information and business details
-- Preferences and settings
-- Statistics and progress tracking
-- Role-based access control
+1. **Create Kraken Pro Account**: Sign up at [kraken.com](https://www.kraken.com)
+2. **Generate API Keys**: 
+   - Go to Account → API
+   - Create new API key
+   - Enable trading permissions
+   - Copy API Key and Secret
+3. **Test in Sandbox**: Start with `KRAKEN_SANDBOX=true` for testing
 
-### Prompt
-- Life tracking prompts with categories
-- Difficulty levels and business relevance
-- Usage tracking and ratings
-- Resources and examples
+## 🚀 Usage
 
-### LifeEntry
-- Daily life tracking entries
-- Mood, energy, and productivity metrics
-- Business and personal metrics
-- Insights, actions, and reflections
-
-### Goal
-- Short-term, medium-term, and long-term goals
-- Progress tracking and milestones
-- Business and personal impact metrics
-- Action items and resources
-
-## 🔌 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user profile
-- `PUT /api/auth/profile` - Update user profile
-- `PUT /api/auth/change-password` - Change password
-- `POST /api/auth/logout` - Logout user
-
-### Users
-- `GET /api/users/profile` - Get user profile
-- `PUT /api/users/profile` - Update user profile
-- `GET /api/users/stats` - Get user statistics
-- `GET /api/users` - Get all users (admin only)
-- `GET /api/users/:id` - Get user by ID (admin only)
-- `PUT /api/users/:id` - Update user (admin only)
-- `DELETE /api/users/:id` - Delete user (admin only)
-
-### Prompts
-- `GET /api/prompts` - Get all prompts with filtering
-- `GET /api/prompts/:id` - Get single prompt
-- `POST /api/prompts` - Create new prompt
-- `PUT /api/prompts/:id` - Update prompt
-- `DELETE /api/prompts/:id` - Delete prompt
-- `POST /api/prompts/:id/rate` - Rate a prompt
-- `GET /api/prompts/featured` - Get featured prompts
-- `GET /api/prompts/business/:relevance` - Get prompts by business relevance
-
-### Life Entries
-- `GET /api/life-entries` - Get all life entries
-- `GET /api/life-entries/:id` - Get single life entry
-- `POST /api/life-entries` - Create new life entry
-- `PUT /api/life-entries/:id` - Update life entry
-- `DELETE /api/life-entries/:id` - Delete life entry
-- `POST /api/life-entries/:id/insights` - Add insight
-- `POST /api/life-entries/:id/actions` - Add action
-- `PUT /api/life-entries/:id/actions/:actionId/complete` - Complete action
-- `GET /api/life-entries/stats/overview` - Get user statistics
-- `GET /api/life-entries/mood/:mood` - Get entries by mood
-
-### Goals
-- `GET /api/goals` - Get all goals
-- `GET /api/goals/:id` - Get single goal
-- `POST /api/goals` - Create new goal
-- `PUT /api/goals/:id` - Update goal
-- `DELETE /api/goals/:id` - Delete goal
-- `PUT /api/goals/:id/progress` - Update goal progress
-- `GET /api/goals/overdue` - Get overdue goals
-- `GET /api/goals/category/:category` - Get goals by category
-
-### Analytics
-- `GET /api/analytics/overview` - Get analytics overview
-- `GET /api/analytics/mood` - Get mood analytics
-- `GET /api/analytics/business` - Get business analytics
-
-## 🔐 Authentication
-
-The API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
-
-```
-Authorization: Bearer <your-jwt-token>
+### 1. Single Analysis
+```bash
+python main.py analyze BTC/USD
 ```
 
-## 📊 Data Structure Examples
+### 2. Check System Status
+```bash
+python main.py status
+```
 
-### Creating a Life Entry
-```json
-{
-  "promptId": "60d21b4667d0d8992e610c85",
-  "title": "Today's Reflection",
-  "content": "Today was productive. I completed three major tasks and felt energized throughout the day.",
-  "mood": "great",
-  "energy": 8,
-  "productivity": 9,
-  "stress": 3,
-  "satisfaction": 8,
-  "insights": ["Working in focused blocks increases productivity"],
-  "actions": [
-    {
-      "title": "Schedule focused work blocks",
-      "description": "Block 2-hour periods for deep work",
-      "priority": "high"
-    }
-  ],
-  "businessMetrics": {
-    "revenue": 5000,
-    "customers": 3,
-    "projects": 2
-  },
-  "personalMetrics": {
-    "exercise": 45,
-    "sleep": 7.5,
-    "meditation": 20
-  }
+### 3. Manual Trade
+```bash
+python main.py trade BTC/USD buy 0.01
+```
+
+### 4. Start Automated Trading
+```bash
+python main.py start
+```
+
+## 📊 Trading Strategy
+
+### AI Model Architecture
+- **Ensemble Approach**: Combines multiple ML models for robust predictions
+- **Feature Engineering**: 50+ technical indicators and market features
+- **Signal Generation**: Buy/Sell/Hold recommendations with confidence scores
+- **Risk Adjustment**: Position sizing based on signal confidence and market conditions
+
+### Technical Indicators Used
+- Moving Averages (SMA, EMA)
+- MACD (Moving Average Convergence Divergence)
+- RSI (Relative Strength Index)
+- Bollinger Bands
+- ATR (Average True Range)
+- Volume indicators
+- Support/Resistance levels
+- Candlestick patterns
+
+### Risk Management
+- **Position Sizing**: Kelly Criterion-based sizing
+- **Stop Losses**: ATR-based dynamic stop losses
+- **Take Profits**: Risk-reward ratio of 2:1
+- **Daily Loss Limits**: Configurable maximum daily loss
+- **Drawdown Protection**: Automatic trading halt on excessive drawdown
+
+## 📈 Monitoring & Alerts
+
+### Performance Metrics
+- Total return and daily P&L
+- Maximum drawdown tracking
+- Win rate and profit factor
+- Sharpe ratio and risk-adjusted returns
+
+### Alert Types
+- High daily loss alerts
+- Drawdown warnings
+- Consecutive loss notifications
+- API connectivity issues
+- Model performance degradation
+
+### Logging
+- Comprehensive trade logging
+- AI signal generation logs
+- Error tracking and debugging
+- Performance reports
+
+## 🔧 Advanced Configuration
+
+### Model Customization
+```python
+# In ai_trader.py, modify model parameters
+self.models = {
+    'random_forest': RandomForestClassifier(
+        n_estimators=200,  # Increase for better accuracy
+        max_depth=15,      # Adjust complexity
+        random_state=42
+    ),
+    # ... other models
 }
 ```
 
-### Creating a Goal
-```json
-{
-  "title": "Increase Monthly Revenue by 25%",
-  "description": "Focus on expanding customer base and improving conversion rates",
-  "category": "business",
-  "type": "medium-term",
-  "targetDate": "2024-06-30T00:00:00.000Z",
-  "priority": "high",
-  "businessImpact": {
-    "revenue": 75,
-    "customers": 60,
-    "efficiency": 80
-  }
-}
+### Risk Parameters
+```python
+# In risk_manager.py, adjust risk settings
+self.risk_per_trade = 0.01      # 1% risk per trade
+self.max_position_size = 0.05   # 5% max position
+self.max_daily_loss = 0.03      # 3% daily loss limit
 ```
+
+### Trading Pairs
+```python
+# Add more trading pairs
+self.trading_pairs = [
+    'BTC/USD', 'ETH/USD', 'ADA/USD', 
+    'DOT/USD', 'LINK/USD'
+]
+```
+
+## 🛡️ Safety Features
+
+### Emergency Controls
+- **Emergency Stop**: Immediate halt of all trading
+- **Daily Loss Limits**: Automatic shutdown on excessive losses
+- **API Error Handling**: Graceful handling of connection issues
+- **Sandbox Mode**: Safe testing environment
+
+### Risk Controls
+- **Position Limits**: Maximum position size per trade
+- **Drawdown Limits**: Trading halt on excessive drawdown
+- **Consecutive Loss Limits**: Reduced trading after losses
+- **Market Hours**: Optional trading time restrictions
+
+## 📚 API Reference
+
+### Core Classes
+
+#### `KrakenClient`
+- `get_account_balance()`: Get account balance
+- `get_ticker(pair)`: Get current price
+- `place_market_order(pair, side, amount)`: Execute trade
+- `get_ohlc_data(pair, interval)`: Get historical data
+
+#### `MarketAnalyzer`
+- `collect_market_data(pair)`: Collect OHLC data
+- `calculate_technical_indicators(df)`: Calculate indicators
+- `detect_patterns(df)`: Detect candlestick patterns
+- `get_market_summary(pair)`: Comprehensive market analysis
+
+#### `AITrader`
+- `predict_signal(pair)`: Generate AI trading signal
+- `train_models(pair)`: Train ML models
+- `get_trading_recommendation(pair)`: Get trading advice
+
+#### `RiskManager`
+- `calculate_position_size(...)`: Calculate optimal position size
+- `validate_trade(...)`: Validate trade parameters
+- `check_stop_losses()`: Monitor stop loss levels
+
+#### `TradingExecutor`
+- `execute_trade(pair, signal, confidence)`: Execute trades
+- `get_portfolio_summary()`: Get portfolio status
+- `start_trading_session(pair)`: Begin automated trading
 
 ## 🧪 Testing
 
-```bash
-# Run tests
-npm test
+### Sandbox Testing
+1. Set `KRAKEN_SANDBOX=true` in .env
+2. Use Kraken sandbox API credentials
+3. Test with small amounts
+4. Monitor logs for any issues
 
-# Run tests with coverage
-npm run test:coverage
+### Backtesting
+```python
+# Example backtesting script
+from market_analyzer import MarketAnalyzer
+from ai_trader import AITrader
+
+analyzer = MarketAnalyzer(kraken_client)
+ai_trader = AITrader(analyzer)
+
+# Get historical data
+df = analyzer.collect_market_data('BTC/USD', limit=1000)
+
+# Generate signals
+signals = []
+for i in range(100, len(df)):
+    historical_data = df.iloc[:i]
+    signal = ai_trader.predict_signal('BTC/USD')
+    signals.append(signal)
 ```
 
-## 🚀 Deployment
+## 🚨 Important Disclaimers
 
-### Production Build
-```bash
-# Install production dependencies only
-npm ci --only=production
+### Risk Warning
+- **High Risk**: Cryptocurrency trading involves substantial risk
+- **No Guarantees**: Past performance doesn't guarantee future results
+- **Loss Potential**: You may lose your entire investment
+- **Test First**: Always test in sandbox mode before live trading
 
-# Set NODE_ENV to production
-export NODE_ENV=production
-
-# Start the server
-npm start
-```
-
-### Environment Variables for Production
-- Set `NODE_ENV=production`
-- Use a strong `JWT_SECRET`
-- Configure production MongoDB URI
-- Set appropriate rate limiting values
-- Configure CORS origins for production domains
-
-## 📈 Monitoring and Logging
-
-The application includes:
-- Request logging with Morgan
-- Error logging and handling
-- Health check endpoint at `/health`
-- Rate limiting and security headers
-
-## 🔧 Development
-
-### Project Structure
-```
-cincinnatus-server/
-├── config/          # Database and configuration
-├── middleware/      # Authentication and validation
-├── models/          # Mongoose models
-├── routes/          # API route handlers
-├── server.js        # Main server file
-├── package.json     # Dependencies and scripts
-└── README.md        # This file
-```
-
-### Adding New Features
-1. Create model in `models/` directory
-2. Add routes in `routes/` directory
-3. Update `server.js` to include new routes
-4. Add validation and error handling
-5. Update documentation
+### Legal Compliance
+- **Regulatory Compliance**: Ensure compliance with local regulations
+- **Tax Implications**: Cryptocurrency trading may have tax implications
+- **Terms of Service**: Follow Kraken's terms of service
+- **Responsible Trading**: Only trade with money you can afford to lose
 
 ## 🤝 Contributing
 
@@ -300,25 +279,42 @@ cincinnatus-server/
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 
-For support and questions:
-- Create an issue in the repository
-- Check the API documentation
-- Review the code examples
+### Common Issues
 
-## 🔮 Roadmap
+**API Connection Errors**
+- Verify API credentials
+- Check internet connection
+- Ensure API permissions are correct
 
-- [ ] Habit tracking system
-- [ ] Advanced analytics and reporting
-- [ ] Mobile app support
-- [ ] Team collaboration features
-- [ ] Integration with external services
-- [ ] Advanced goal templates
-- [ ] AI-powered insights and recommendations
+**Model Training Errors**
+- Check data availability
+- Verify feature calculations
+- Monitor memory usage
+
+**Trading Execution Errors**
+- Verify account balance
+- Check position limits
+- Monitor API rate limits
+
+### Getting Help
+- Check the logs in `logs/` directory
+- Review error messages carefully
+- Test in sandbox mode first
+- Start with small position sizes
+
+## 🔮 Future Enhancements
+
+- **Advanced ML Models**: Deep learning models, reinforcement learning
+- **Multi-Exchange Support**: Binance, Coinbase Pro, etc.
+- **Strategy Optimization**: Genetic algorithms, Bayesian optimization
+- **Web Interface**: Dashboard for monitoring and control
+- **Mobile Alerts**: Push notifications for important events
+- **Social Trading**: Copy trading features
 
 ---
 
-**Built with ❤️ for life optimization and business success**
+**Remember**: This is a sophisticated trading system. Start small, test thoroughly, and always prioritize risk management over profits.
