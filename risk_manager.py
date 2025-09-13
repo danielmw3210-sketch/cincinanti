@@ -43,8 +43,10 @@ class RiskManager:
                               current_price: float, 
                               stop_loss_price: float,
                               account_balance: float,
-                              pair: str) -> Dict[str, float]:
-        """Calculate optimal position size based on risk parameters."""
+                              pair: str,
+                              market_volatility: float = None,
+                              correlation_matrix: Dict = None) -> Dict[str, float]:
+        """Calculate optimal position size using advanced risk management."""
         try:
             self.reset_daily_tracking()
             
@@ -53,23 +55,42 @@ class RiskManager:
                 logger.warning("Daily loss limit reached, reducing position size")
                 return {'size': 0.0, 'reason': 'Daily loss limit reached'}
             
-            # Calculate risk amount
-            risk_amount = account_balance * self.risk_per_trade
+            # Calculate base risk amount
+            base_risk_amount = account_balance * self.risk_per_trade
             
-            # Adjust risk based on signal confidence
-            confidence_multiplier = min(signal_confidence * 2, 1.0)  # Cap at 1.0
-            adjusted_risk = risk_amount * confidence_multiplier
+            # Dynamic risk adjustment based on multiple factors
+            risk_multiplier = self._calculate_risk_multiplier(
+                signal_confidence, market_volatility, pair, correlation_matrix
+            )
             
-            # Calculate position size based on stop loss distance
+            adjusted_risk = base_risk_amount * risk_multiplier
+            
+            # Calculate position size using Kelly Criterion
             price_risk = abs(current_price - stop_loss_price) / current_price
             
             if price_risk == 0:
                 logger.warning("Stop loss price equals current price, cannot calculate position size")
                 return {'size': 0.0, 'reason': 'Invalid stop loss price'}
             
-            # Position size = Risk amount / Price risk
-            position_value = adjusted_risk / price_risk
-            position_size = position_value / current_price
+            # Kelly Criterion: f = (bp - q) / b
+            # where b = odds, p = probability of win, q = probability of loss
+            win_probability = signal_confidence
+            loss_probability = 1 - signal_confidence
+            odds = 1 / price_risk  # Risk-reward ratio
+            
+            kelly_fraction = (odds * win_probability - loss_probability) / odds
+            kelly_fraction = max(0, min(kelly_fraction, 0.25))  # Cap at 25%
+            
+            # Position size using Kelly Criterion
+            kelly_position_value = account_balance * kelly_fraction
+            kelly_position_size = kelly_position_value / current_price
+            
+            # Traditional position sizing
+            traditional_position_value = adjusted_risk / price_risk
+            traditional_position_size = traditional_position_value / current_price
+            
+            # Use the more conservative approach
+            position_size = min(kelly_position_size, traditional_position_size)
             
             # Apply maximum position size limit
             max_position_value = account_balance * self.max_position_size
@@ -85,17 +106,97 @@ class RiskManager:
                 position_size = account_balance / current_price
                 logger.warning("Insufficient balance, reducing position size")
             
+            # Apply portfolio heat (total risk across all positions)
+            portfolio_heat = self._calculate_portfolio_heat(account_balance)
+            if portfolio_heat > 0.15:  # 15% total portfolio risk
+                position_size *= 0.5  # Reduce position size
+                logger.warning(f"High portfolio heat ({portfolio_heat:.2%}), reducing position size")
+            
             return {
                 'size': position_size,
                 'value': position_size * current_price,
                 'risk_amount': adjusted_risk,
-                'confidence_multiplier': confidence_multiplier,
-                'price_risk': price_risk
+                'risk_multiplier': risk_multiplier,
+                'price_risk': price_risk,
+                'kelly_fraction': kelly_fraction,
+                'portfolio_heat': portfolio_heat
             }
             
         except Exception as e:
             logger.error(f"Error calculating position size: {e}")
             return {'size': 0.0, 'reason': f'Error: {str(e)}'}
+    
+    def _calculate_risk_multiplier(self, 
+                                 signal_confidence: float, 
+                                 market_volatility: float = None,
+                                 pair: str = None,
+                                 correlation_matrix: Dict = None) -> float:
+        """Calculate dynamic risk multiplier based on multiple factors."""
+        try:
+            multiplier = 1.0
+            
+            # Confidence-based adjustment
+            confidence_multiplier = min(signal_confidence * 1.5, 1.0)
+            multiplier *= confidence_multiplier
+            
+            # Volatility-based adjustment
+            if market_volatility is not None:
+                if market_volatility > 0.05:  # High volatility
+                    multiplier *= 0.7
+                elif market_volatility < 0.01:  # Low volatility
+                    multiplier *= 1.2
+                else:  # Normal volatility
+                    multiplier *= 1.0
+            
+            # Drawdown-based adjustment
+            if self.current_drawdown > 0.05:  # 5% drawdown
+                multiplier *= 0.8
+            elif self.current_drawdown > 0.1:  # 10% drawdown
+                multiplier *= 0.5
+            
+            # Recent performance adjustment
+            if self.daily_pnl < 0:
+                multiplier *= 0.8  # Reduce risk after losses
+            elif self.daily_pnl > 0:
+                multiplier *= 1.1  # Slightly increase risk after wins
+            
+            # Correlation-based adjustment
+            if correlation_matrix and pair in correlation_matrix:
+                # Reduce position size if highly correlated with existing positions
+                max_correlation = max(correlation_matrix[pair].values()) if pair in correlation_matrix else 0
+                if max_correlation > 0.7:
+                    multiplier *= 0.6
+                elif max_correlation > 0.5:
+                    multiplier *= 0.8
+            
+            # Market regime adjustment
+            current_hour = datetime.now().hour
+            if current_hour in [0, 1, 2, 3, 4, 5]:  # Low liquidity hours
+                multiplier *= 0.8
+            
+            return max(0.1, min(multiplier, 2.0))  # Cap between 0.1 and 2.0
+            
+        except Exception as e:
+            logger.error(f"Error calculating risk multiplier: {e}")
+            return 1.0
+    
+    def _calculate_portfolio_heat(self, account_balance: float) -> float:
+        """Calculate total portfolio risk (heat)."""
+        try:
+            total_risk = 0.0
+            
+            for pair, position in self.open_positions.items():
+                # Calculate risk for each position
+                position_value = position['size'] * position.get('current_price', 0)
+                if position_value > 0:
+                    position_risk = position_value / account_balance
+                    total_risk += position_risk
+            
+            return total_risk
+            
+        except Exception as e:
+            logger.error(f"Error calculating portfolio heat: {e}")
+            return 0.0
     
     def calculate_stop_loss(self, 
                           entry_price: float, 

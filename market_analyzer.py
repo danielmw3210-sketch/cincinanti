@@ -16,73 +16,218 @@ class MarketAnalyzer:
         self.feature_window = config.feature_window
         
     def collect_market_data(self, pair: str, interval: int = 1, limit: int = 1000) -> pd.DataFrame:
-        """Collect OHLC market data."""
+        """Collect comprehensive market data with multiple timeframes."""
         try:
-            ohlc_data = self.client.get_ohlc_data(pair, interval, limit=limit)
+            # Collect multiple timeframes for better analysis
+            timeframes = [1, 5, 15, 60] if interval == 1 else [interval]
+            all_data = {}
             
-            if not ohlc_data:
+            for tf in timeframes:
+                try:
+                    ohlc_data = self.client.get_ohlc_data(pair, tf, limit=limit)
+                    
+                    if ohlc_data:
+                        df_tf = pd.DataFrame(ohlc_data)
+                        df_tf['datetime'] = pd.to_datetime(df_tf['timestamp'], unit='s')
+                        df_tf.set_index('datetime', inplace=True)
+                        
+                        # Rename columns with timeframe suffix
+                        if tf != interval:
+                            df_tf.columns = [f"{col}_{tf}m" if col not in ['datetime', 'timestamp'] else col for col in df_tf.columns]
+                        
+                        all_data[f"tf_{tf}"] = df_tf
+                        logger.info(f"Collected {len(df_tf)} data points for {pair} at {tf}m timeframe")
+                    
+                except Exception as e:
+                    logger.warning(f"Error collecting {tf}m data for {pair}: {e}")
+                    continue
+            
+            if not all_data:
                 logger.warning(f"No market data received for {pair}")
                 return pd.DataFrame()
             
-            df = pd.DataFrame(ohlc_data)
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-            df.set_index('datetime', inplace=True)
-            
-            logger.info(f"Collected {len(df)} data points for {pair}")
-            return df
+            # Use primary timeframe as base
+            primary_tf = f"tf_{interval}"
+            if primary_tf in all_data:
+                df = all_data[primary_tf].copy()
+                
+                # Merge other timeframes
+                for tf_name, tf_data in all_data.items():
+                    if tf_name != primary_tf:
+                        # Resample to match primary timeframe
+                        tf_data_resampled = tf_data.resample(f"{interval}min").last()
+                        df = df.join(tf_data_resampled, how='left', rsuffix=f"_{tf_name}")
+                
+                # Add additional market data
+                df = self._add_market_metadata(df, pair)
+                
+                logger.info(f"Collected comprehensive data: {len(df)} points, {len(df.columns)} features for {pair}")
+                return df
+            else:
+                # Fallback to first available timeframe
+                df = list(all_data.values())[0]
+                logger.info(f"Using fallback data: {len(df)} points for {pair}")
+                return df
             
         except Exception as e:
             logger.error(f"Error collecting market data for {pair}: {e}")
             return pd.DataFrame()
     
+    def _add_market_metadata(self, df: pd.DataFrame, pair: str) -> pd.DataFrame:
+        """Add additional market metadata and features."""
+        try:
+            # Add market session information
+            df['hour'] = df.index.hour
+            df['day_of_week'] = df.index.dayofweek
+            df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
+            
+            # Add market session indicators
+            df['asian_session'] = ((df['hour'] >= 0) & (df['hour'] < 8)).astype(int)
+            df['european_session'] = ((df['hour'] >= 8) & (df['hour'] < 16)).astype(int)
+            df['us_session'] = ((df['hour'] >= 16) & (df['hour'] < 24)).astype(int)
+            
+            # Add volatility regime indicators
+            df['volatility_20'] = df['close'].rolling(window=20).std()
+            df['volatility_regime'] = (df['volatility_20'] > df['volatility_20'].rolling(50).quantile(0.8)).astype(int)
+            
+            # Add trend strength
+            df['trend_strength'] = abs(df['close'].rolling(20).mean() - df['close'].rolling(50).mean()) / df['close'].rolling(50).mean()
+            
+            # Add volume profile
+            df['volume_profile'] = df['volume'].rolling(20).rank(pct=True)
+            
+            # Add price momentum
+            df['momentum_5'] = df['close'].pct_change(5)
+            df['momentum_10'] = df['close'].pct_change(10)
+            df['momentum_20'] = df['close'].pct_change(20)
+            
+            # Add market microstructure features
+            df['price_impact'] = df['volume'] * abs(df['close'].pct_change())
+            df['liquidity_proxy'] = df['volume'] / df['volatility_20']
+            
+            # Add cross-timeframe features
+            if 'close_5m' in df.columns:
+                df['price_ratio_1m_5m'] = df['close'] / df['close_5m']
+            if 'close_15m' in df.columns:
+                df['price_ratio_1m_15m'] = df['close'] / df['close_15m']
+            if 'close_60m' in df.columns:
+                df['price_ratio_1m_60m'] = df['close'] / df['close_60m']
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error adding market metadata: {e}")
+            return df
+    
     def calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate technical indicators."""
+        """Calculate comprehensive technical indicators."""
         if df.empty:
             return df
             
         try:
-            # Price-based indicators
-            df['sma_20'] = ta.trend.sma_indicator(df['close'], window=20)
-            df['sma_50'] = ta.trend.sma_indicator(df['close'], window=50)
-            df['ema_12'] = ta.trend.ema_indicator(df['close'], window=12)
-            df['ema_26'] = ta.trend.ema_indicator(df['close'], window=26)
+            # Price-based indicators (multiple timeframes)
+            for window in [5, 10, 20, 50, 100, 200]:
+                df[f'sma_{window}'] = ta.trend.sma_indicator(df['close'], window=window)
+                df[f'ema_{window}'] = ta.trend.ema_indicator(df['close'], window=window)
             
-            # MACD
+            # MACD with multiple timeframes
             df['macd'] = ta.trend.macd_diff(df['close'])
             df['macd_signal'] = ta.trend.macd_signal(df['close'])
             df['macd_histogram'] = ta.trend.macd(df['close'])
+            df['macd_12_26'] = ta.trend.macd(df['close'], window_slow=26, window_fast=12)
+            df['macd_5_35'] = ta.trend.macd(df['close'], window_slow=35, window_fast=5)
             
-            # RSI
-            df['rsi'] = ta.momentum.rsi(df['close'], window=14)
+            # RSI with multiple timeframes
+            for window in [7, 14, 21, 28]:
+                df[f'rsi_{window}'] = ta.momentum.rsi(df['close'], window=window)
             
-            # Bollinger Bands
-            df['bb_upper'] = ta.volatility.bollinger_hband(df['close'])
-            df['bb_middle'] = ta.volatility.bollinger_mavg(df['close'])
-            df['bb_lower'] = ta.volatility.bollinger_lband(df['close'])
-            df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
+            # Stochastic Oscillator
+            df['stoch_k'] = ta.momentum.stoch(df['high'], df['low'], df['close'])
+            df['stoch_d'] = ta.momentum.stoch_signal(df['high'], df['low'], df['close'])
             
-            # Volume indicators
-            df['volume_sma'] = ta.volume.volume_sma(df['close'], df['volume'])
-            df['volume_ratio'] = df['volume'] / df['volume_sma']
+            # Williams %R
+            df['williams_r'] = ta.momentum.williams_r(df['high'], df['low'], df['close'])
             
-            # Volatility
-            df['atr'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'])
-            df['volatility'] = df['close'].rolling(window=20).std()
+            # Bollinger Bands (multiple timeframes)
+            for window in [20, 50]:
+                df[f'bb_upper_{window}'] = ta.volatility.bollinger_hband(df['close'], window=window)
+                df[f'bb_middle_{window}'] = ta.volatility.bollinger_mavg(df['close'], window=window)
+                df[f'bb_lower_{window}'] = ta.volatility.bollinger_lband(df['close'], window=window)
+                df[f'bb_width_{window}'] = (df[f'bb_upper_{window}'] - df[f'bb_lower_{window}']) / df[f'bb_middle_{window}']
+                df[f'bb_position_{window}'] = (df['close'] - df[f'bb_lower_{window}']) / (df[f'bb_upper_{window}'] - df[f'bb_lower_{window}'])
             
-            # Price patterns
+            # Keltner Channels
+            df['kc_upper'] = ta.volatility.keltner_channel_hband(df['high'], df['low'], df['close'])
+            df['kc_middle'] = ta.volatility.keltner_channel_mband(df['high'], df['low'], df['close'])
+            df['kc_lower'] = ta.volatility.keltner_channel_lband(df['high'], df['low'], df['close'])
+            
+            # Volume indicators (enhanced)
+            df['volume_sma_20'] = ta.volume.volume_sma(df['close'], df['volume'], window=20)
+            df['volume_ratio'] = df['volume'] / df['volume_sma_20']
+            df['obv'] = ta.volume.on_balance_volume(df['close'], df['volume'])
+            df['ad'] = ta.volume.acc_dist_index(df['high'], df['low'], df['close'], df['volume'])
+            df['cmf'] = ta.volume.chaikin_money_flow(df['high'], df['low'], df['close'], df['volume'])
+            df['fi'] = ta.volume.force_index(df['close'], df['volume'])
+            df['eom'] = ta.volume.ease_of_movement(df['high'], df['low'], df['volume'])
+            
+            # Volatility indicators (enhanced)
+            df['atr_14'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'], window=14)
+            df['atr_21'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'], window=21)
+            df['volatility_20'] = df['close'].rolling(window=20).std()
+            df['volatility_50'] = df['close'].rolling(window=50).std()
+            df['volatility_ratio'] = df['volatility_20'] / df['volatility_50']
+            
+            # Price patterns (enhanced)
             df['price_change'] = df['close'].pct_change()
+            df['price_change_2'] = df['close'].pct_change(periods=2)
+            df['price_change_5'] = df['close'].pct_change(periods=5)
             df['price_range'] = (df['high'] - df['low']) / df['close']
             df['body_size'] = abs(df['close'] - df['open']) / df['close']
+            df['upper_shadow'] = (df['high'] - np.maximum(df['open'], df['close'])) / df['close']
+            df['lower_shadow'] = (np.minimum(df['open'], df['close']) - df['low']) / df['close']
             
-            # Trend indicators
-            df['adx'] = ta.trend.adx(df['high'], df['low'], df['close'])
-            df['cci'] = ta.trend.cci(df['high'], df['low'], df['close'])
+            # Trend indicators (enhanced)
+            df['adx_14'] = ta.trend.adx(df['high'], df['low'], df['close'], window=14)
+            df['adx_21'] = ta.trend.adx(df['high'], df['low'], df['close'], window=21)
+            df['cci_20'] = ta.trend.cci(df['high'], df['low'], df['close'], window=20)
+            df['cci_50'] = ta.trend.cci(df['high'], df['low'], df['close'], window=50)
+            df['dpo'] = ta.trend.dpo(df['close'])
+            df['ichimoku_a'] = ta.trend.ichimoku_a(df['high'], df['low'])
+            df['ichimoku_b'] = ta.trend.ichimoku_b(df['high'], df['low'])
+            df['kst'] = ta.trend.kst(df['close'])
+            df['mass_index'] = ta.trend.mass_index(df['high'], df['low'])
+            df['psar'] = ta.trend.psar_down(df['high'], df['low'], df['close'])
             
-            # Support and resistance levels
-            df['support'] = df['low'].rolling(window=20).min()
-            df['resistance'] = df['high'].rolling(window=20).max()
-            df['support_distance'] = (df['close'] - df['support']) / df['close']
-            df['resistance_distance'] = (df['resistance'] - df['close']) / df['close']
+            # Momentum indicators
+            df['roc_10'] = ta.momentum.roc(df['close'], window=10)
+            df['roc_20'] = ta.momentum.roc(df['close'], window=20)
+            df['tsi'] = ta.momentum.tsi(df['close'])
+            df['ultimate_oscillator'] = ta.momentum.ultimate_oscillator(df['high'], df['low'], df['close'])
+            
+            # Support and resistance levels (enhanced)
+            for window in [20, 50, 100]:
+                df[f'support_{window}'] = df['low'].rolling(window=window).min()
+                df[f'resistance_{window}'] = df['high'].rolling(window=window).max()
+                df[f'support_distance_{window}'] = (df['close'] - df[f'support_{window}']) / df['close']
+                df[f'resistance_distance_{window}'] = (df[f'resistance_{window}'] - df['close']) / df['close']
+            
+            # Market microstructure features
+            df['bid_ask_spread'] = (df['high'] - df['low']) / df['close']  # Proxy for spread
+            df['price_impact'] = df['volume'] * df['price_change'].abs()
+            df['liquidity_ratio'] = df['volume'] / df['atr_14']
+            
+            # Cross-asset features (if available)
+            df['price_momentum_5'] = df['close'].pct_change(5)
+            df['price_momentum_10'] = df['close'].pct_change(10)
+            df['price_momentum_20'] = df['close'].pct_change(20)
+            
+            # Volatility clustering
+            df['volatility_cluster'] = df['price_change'].rolling(window=5).std()
+            df['volatility_regime'] = (df['volatility_20'] > df['volatility_50']).astype(int)
+            
+            # Market regime indicators
+            df['trend_regime'] = ((df['sma_20'] > df['sma_50']) & (df['sma_50'] > df['sma_200'])).astype(int)
+            df['volatility_regime_high'] = (df['volatility_20'] > df['volatility_20'].rolling(50).quantile(0.8)).astype(int)
             
             logger.info(f"Calculated {len([col for col in df.columns if col not in ['open', 'high', 'low', 'close', 'volume', 'timestamp']])} technical indicators")
             return df
@@ -183,7 +328,7 @@ class MarketAnalyzer:
             return {}
     
     def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare features for ML model."""
+        """Prepare comprehensive features for ML model."""
         if df.empty:
             return pd.DataFrame()
             
@@ -191,30 +336,102 @@ class MarketAnalyzer:
             # Calculate all indicators
             df_with_indicators = self.calculate_technical_indicators(df)
             
-            # Select relevant features
+            # Select comprehensive feature set
             feature_columns = [
-                'close', 'volume', 'price_change', 'price_range', 'body_size',
-                'sma_20', 'sma_50', 'ema_12', 'ema_26', 'macd', 'macd_signal',
-                'rsi', 'bb_width', 'atr', 'volatility', 'adx', 'cci',
-                'support_distance', 'resistance_distance', 'volume_ratio'
+                # Price and volume
+                'close', 'volume', 'price_change', 'price_change_2', 'price_change_5',
+                'price_range', 'body_size', 'upper_shadow', 'lower_shadow',
+                
+                # Moving averages (multiple timeframes)
+                'sma_5', 'sma_10', 'sma_20', 'sma_50', 'sma_100', 'sma_200',
+                'ema_5', 'ema_10', 'ema_12', 'ema_20', 'ema_26', 'ema_50', 'ema_100', 'ema_200',
+                
+                # MACD variants
+                'macd', 'macd_signal', 'macd_histogram', 'macd_12_26', 'macd_5_35',
+                
+                # RSI variants
+                'rsi_7', 'rsi_14', 'rsi_21', 'rsi_28',
+                
+                # Stochastic and Williams
+                'stoch_k', 'stoch_d', 'williams_r',
+                
+                # Bollinger Bands
+                'bb_width_20', 'bb_width_50', 'bb_position_20', 'bb_position_50',
+                
+                # Keltner Channels
+                'kc_upper', 'kc_middle', 'kc_lower',
+                
+                # Volume indicators
+                'volume_ratio', 'obv', 'ad', 'cmf', 'fi', 'eom',
+                
+                # Volatility
+                'atr_14', 'atr_21', 'volatility_20', 'volatility_50', 'volatility_ratio',
+                'volatility_cluster', 'volatility_regime',
+                
+                # Trend indicators
+                'adx_14', 'adx_21', 'cci_20', 'cci_50', 'dpo', 'kst', 'mass_index',
+                'ichimoku_a', 'ichimoku_b',
+                
+                # Momentum
+                'roc_10', 'roc_20', 'tsi', 'ultimate_oscillator',
+                
+                # Support/Resistance
+                'support_distance_20', 'support_distance_50', 'support_distance_100',
+                'resistance_distance_20', 'resistance_distance_50', 'resistance_distance_100',
+                
+                # Market microstructure
+                'bid_ask_spread', 'price_impact', 'liquidity_ratio',
+                
+                # Regime indicators
+                'trend_regime', 'volatility_regime_high',
+                
+                # Price momentum
+                'price_momentum_5', 'price_momentum_10', 'price_momentum_20'
             ]
             
             # Filter available columns
             available_features = [col for col in feature_columns if col in df_with_indicators.columns]
             features_df = df_with_indicators[available_features].copy()
             
-            # Add lagged features
-            for lag in [1, 2, 3, 5]:
-                for col in ['close', 'volume', 'price_change']:
+            # Add lagged features (more comprehensive)
+            lag_features = ['close', 'volume', 'price_change', 'rsi_14', 'macd', 'bb_position_20']
+            for lag in [1, 2, 3, 5, 10]:
+                for col in lag_features:
                     if col in features_df.columns:
                         features_df[f'{col}_lag_{lag}'] = features_df[col].shift(lag)
             
-            # Add rolling statistics
-            for window in [5, 10, 20]:
-                for col in ['close', 'volume']:
+            # Add rolling statistics (enhanced)
+            rolling_features = ['close', 'volume', 'price_change', 'rsi_14']
+            for window in [3, 5, 10, 20, 50]:
+                for col in rolling_features:
                     if col in features_df.columns:
                         features_df[f'{col}_mean_{window}'] = features_df[col].rolling(window).mean()
                         features_df[f'{col}_std_{window}'] = features_df[col].rolling(window).std()
+                        features_df[f'{col}_min_{window}'] = features_df[col].rolling(window).min()
+                        features_df[f'{col}_max_{window}'] = features_df[col].rolling(window).max()
+                        features_df[f'{col}_quantile_25_{window}'] = features_df[col].rolling(window).quantile(0.25)
+                        features_df[f'{col}_quantile_75_{window}'] = features_df[col].rolling(window).quantile(0.75)
+            
+            # Add technical indicator ratios
+            if 'sma_20' in features_df.columns and 'sma_50' in features_df.columns:
+                features_df['sma_ratio_20_50'] = features_df['sma_20'] / features_df['sma_50']
+            if 'ema_12' in features_df.columns and 'ema_26' in features_df.columns:
+                features_df['ema_ratio_12_26'] = features_df['ema_12'] / features_df['ema_26']
+            if 'rsi_14' in features_df.columns:
+                features_df['rsi_normalized'] = (features_df['rsi_14'] - 50) / 50
+            
+            # Add price position features
+            if 'bb_upper_20' in features_df.columns and 'bb_lower_20' in features_df.columns:
+                features_df['price_bb_position'] = (features_df['close'] - features_df['bb_lower_20']) / (features_df['bb_upper_20'] - features_df['bb_lower_20'])
+            
+            # Add volatility-adjusted features
+            if 'atr_14' in features_df.columns:
+                features_df['price_change_atr_ratio'] = features_df['price_change'].abs() / features_df['atr_14']
+                features_df['volume_atr_ratio'] = features_df['volume'] / features_df['atr_14']
+            
+            # Add market regime interactions
+            if 'trend_regime' in features_df.columns and 'volatility_regime_high' in features_df.columns:
+                features_df['regime_interaction'] = features_df['trend_regime'] * features_df['volatility_regime_high']
             
             # Remove rows with NaN values
             features_df = features_df.dropna()
