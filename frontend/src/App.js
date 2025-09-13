@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
+import TradingDashboard from './pages/TradingDashboard';
 import Prompts from './pages/Prompts';
 import LifeEntries from './pages/LifeEntries';
 import Goals from './pages/Goals';
@@ -32,14 +33,15 @@ function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/trading" replace />} />
+        <Route path="/trading" element={<TradingDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/prompts" element={<Prompts />} />
         <Route path="/entries" element={<LifeEntries />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/trading" replace />} />
       </Routes>
     </Layout>
   );

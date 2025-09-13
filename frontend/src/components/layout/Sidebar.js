@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { X, Home, Lightbulb, BookOpen, Target, BarChart3, User, LogOut } from 'lucide-react';
+import { X, Home, TrendingUp, Lightbulb, BookOpen, Target, BarChart3, User, LogOut } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 
 const navigation = [
+  { name: 'Trading', href: '/trading', icon: TrendingUp },
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Prompts', href: '/prompts', icon: Lightbulb },
   { name: 'Life Entries', href: '/entries', icon: BookOpen },
