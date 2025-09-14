@@ -1,273 +1,203 @@
-# AI Crypto Trader for Kraken Pro
+# 🚀 Crypto Price Forecast System
 
-A sophisticated AI-powered cryptocurrency trading bot that integrates with Kraken Pro exchange. This system uses machine learning models to analyze market data, generate trading signals, and execute trades with comprehensive risk management.
+A fast, robust baseline for cryptocurrency price forecasting using XGBoost with multi-horizon regression (15/30/60 minutes) and a modern React frontend with ticker-style display.
 
-## 🚀 Features
+## ✨ Features
 
-- **AI-Powered Trading**: Ensemble ML models (Random Forest, Gradient Boosting, Logistic Regression)
-- **Real-time Market Analysis**: Technical indicators, pattern recognition, sentiment analysis
-- **Risk Management**: Position sizing, stop losses, take profits, drawdown protection
-- **Kraken Pro Integration**: Full API integration with sandbox and live trading support
-- **Monitoring & Alerts**: Comprehensive logging, webhook alerts, performance tracking
-- **Portfolio Management**: Real-time portfolio tracking and performance metrics
+- **AI-Powered Forecasting**: XGBoost-based multi-horizon price prediction (15/30/60 min)
+- **Robust Fallback**: Automatically falls back to sklearn's HistGradientBoosting if XGBoost unavailable
+- **Real-time Data**: Live cryptocurrency data fetching with sample data fallback
+- **Modern UI**: React frontend with ticker-style display and real-time updates
+- **Feature Engineering**: Advanced lag features, rolling statistics, and technical indicators
+- **FastAPI Backend**: High-performance API with automatic documentation
+- **Auto-refresh**: Automatic forecast updates every 30 seconds
 
-## 📋 Prerequisites
+## 🏗️ Architecture
 
-- Python 3.8 or higher
-- Kraken Pro API credentials
-- Basic understanding of cryptocurrency trading
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Frontend │    │  FastAPI Backend │    │  Data Sources   │
+│                 │    │                 │    │                 │
+│ • Ticker Display │◄──►│ • XGBoost Model │◄──►│ • Binance API   │
+│ • Symbol Selector│    │ • Data Processor│    │ • Sample Data   │
+│ • Forecast Panel │    │ • Crypto Fetcher│    │ • CCXT Library  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-## 🛠️ Installation
+## 🚀 Quick Start
 
-1. **Clone the repository**
+### Option 1: One-Command Setup
+```bash
+./start.sh
+```
+
+### Option 2: Manual Setup
+
+#### Backend Setup
+```bash
+cd backend
+pip install -r ../requirements.txt
+python main.py
+```
+
+#### Frontend Setup
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## 📊 API Endpoints
+
+- `GET /` - API information
+- `GET /health` - Health check
+- `POST /forecast` - Get price forecasts
+- `GET /symbols` - Available cryptocurrency symbols
+- `GET /model/info` - Model information
+- `POST /retrain` - Retrain the model
+- `GET /data/summary` - Data quality summary
+
+### Example API Usage
+
+```bash
+# Get forecast for Bitcoin
+curl -X POST "http://localhost:8000/forecast" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "BTC/USDT", "lookback_hours": 24}'
+
+# Check health
+curl "http://localhost:8000/health"
+```
+
+## 🎯 Model Details
+
+### XGBoost Configuration
+- **Algorithm**: XGBoost Regressor
+- **Horizons**: 15, 30, 60 minutes
+- **Features**: 50+ engineered features including:
+  - Price lags (1, 5, 15, 30, 60 min)
+  - Rolling statistics (5, 15, 30, 60 min windows)
+  - Technical indicators (RSI, Bollinger Bands, MACD)
+  - Volume features and volatility measures
+
+### Fallback Model
+- **Algorithm**: HistGradientBoostingRegressor
+- **Activation**: When XGBoost is not available
+- **Performance**: Similar accuracy with different training characteristics
+
+## 🎨 Frontend Features
+
+### Ticker Display
+- Real-time price updates
+- Multi-horizon forecast cards
+- Confidence indicators
+- Animated transitions
+
+### Symbol Selector
+- Searchable dropdown
+- 10+ major cryptocurrencies
+- Symbol descriptions and icons
+
+### Forecast Panel
+- Detailed prediction information
+- Price change calculations
+- Model type and data quality indicators
+
+## 🔧 Configuration
+
+### Backend Settings (`backend/config/settings.py`)
+```python
+# Forecast horizons (minutes)
+forecast_horizons = [15, 30, 60]
+
+# Feature engineering
+lag_periods = [1, 5, 15, 30, 60]
+rolling_windows = [5, 15, 30, 60]
+
+# Data requirements
+min_data_points = 100
+default_lookback_hours = 24
+```
+
+### Environment Variables
+```bash
+# Optional: Set API URL for frontend
+REACT_APP_API_URL=http://localhost:8000
+
+# Optional: Enable debug mode
+DEBUG=true
+```
+
+## 📈 Performance
+
+- **Training Time**: ~30 seconds for 24 hours of 1-minute data
+- **Prediction Time**: <100ms per forecast
+- **Memory Usage**: ~200MB for model + data
+- **Accuracy**: Varies by market conditions and data quality
+
+## 🛠️ Development
+
+### Project Structure
+```
+├── backend/
+│   ├── config/          # Configuration settings
+│   ├── data/            # Data processing and fetching
+│   ├── models/          # ML models and training
+│   ├── schemas/         # Pydantic models
+│   ├── utils/           # Utilities and logging
+│   └── main.py          # FastAPI application
+├── frontend/
+│   ├── public/          # Static assets
+│   ├── src/
+│   │   ├── components/  # React components
+│   │   ├── services/    # API services
+│   │   └── App.js       # Main application
+│   └── package.json
+└── requirements.txt     # Python dependencies
+```
+
+### Adding New Features
+
+1. **New Forecast Horizon**: Update `forecast_horizons` in settings
+2. **New Features**: Add to `_create_features()` in `forecast_model.py`
+3. **New Symbols**: Update `supported_symbols` in settings
+4. **New UI Components**: Add to `frontend/src/components/`
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **XGBoost Installation Error**
    ```bash
-   git clone <repository-url>
-   cd ai-crypto-trader
+   pip install xgboost
+   # or
+   conda install -c conda-forge xgboost
    ```
 
-2. **Install dependencies**
+2. **Port Already in Use**
    ```bash
-   pip install -r requirements.txt
+   # Change ports in settings.py and package.json
+   # Backend: settings.port = 8001
+   # Frontend: "start": "PORT=3001 react-scripts start"
    ```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Kraken API credentials
-   ```
+3. **CORS Issues**
+   - Ensure frontend URL is in `cors_origins` in settings
+   - Check that backend is running on correct port
 
-4. **Create necessary directories**
-   ```bash
-   mkdir -p logs models
-   ```
+4. **Model Not Loading**
+   - Check `backend/models/saved/` directory exists
+   - Verify file permissions
+   - Check logs for specific error messages
 
-## ⚙️ Configuration
+### Logs
+- Backend logs: Console output
+- Frontend logs: Browser developer console
+- API logs: FastAPI automatic logging
 
-### Environment Variables (.env)
+## 📝 License
 
-```env
-# Kraken API Configuration
-KRAKEN_API_KEY=your_api_key_here
-KRAKEN_SECRET_KEY=your_secret_key_here
-KRAKEN_SANDBOX=true
-
-# Trading Configuration
-DEFAULT_PAIR=BTC/USD
-INITIAL_BALANCE=1000
-MAX_POSITION_SIZE=0.1
-RISK_PER_TRADE=0.02
-
-# AI Model Configuration
-MODEL_TYPE=ensemble
-RETRAIN_INTERVAL=24
-FEATURE_WINDOW=100
-
-# Monitoring
-LOG_LEVEL=INFO
-WEBHOOK_URL=https://hooks.slack.com/services/...
-ALERT_EMAIL=your-email@example.com
-
-# Safety
-EMERGENCY_STOP=false
-MAX_DAILY_LOSS=0.05
-```
-
-### Kraken API Setup
-
-1. **Create Kraken Pro Account**: Sign up at [kraken.com](https://www.kraken.com)
-2. **Generate API Keys**: 
-   - Go to Account → API
-   - Create new API key
-   - Enable trading permissions
-   - Copy API Key and Secret
-3. **Test in Sandbox**: Start with `KRAKEN_SANDBOX=true` for testing
-
-## 🚀 Usage
-
-### 1. Single Analysis
-```bash
-python main.py analyze BTC/USD
-```
-
-### 2. Check System Status
-```bash
-python main.py status
-```
-
-### 3. Manual Trade
-```bash
-python main.py trade BTC/USD buy 0.01
-```
-
-### 4. Start Automated Trading
-```bash
-python main.py start
-```
-
-## 📊 Trading Strategy
-
-### AI Model Architecture
-- **Ensemble Approach**: Combines multiple ML models for robust predictions
-- **Feature Engineering**: 50+ technical indicators and market features
-- **Signal Generation**: Buy/Sell/Hold recommendations with confidence scores
-- **Risk Adjustment**: Position sizing based on signal confidence and market conditions
-
-### Technical Indicators Used
-- Moving Averages (SMA, EMA)
-- MACD (Moving Average Convergence Divergence)
-- RSI (Relative Strength Index)
-- Bollinger Bands
-- ATR (Average True Range)
-- Volume indicators
-- Support/Resistance levels
-- Candlestick patterns
-
-### Risk Management
-- **Position Sizing**: Kelly Criterion-based sizing
-- **Stop Losses**: ATR-based dynamic stop losses
-- **Take Profits**: Risk-reward ratio of 2:1
-- **Daily Loss Limits**: Configurable maximum daily loss
-- **Drawdown Protection**: Automatic trading halt on excessive drawdown
-
-## 📈 Monitoring & Alerts
-
-### Performance Metrics
-- Total return and daily P&L
-- Maximum drawdown tracking
-- Win rate and profit factor
-- Sharpe ratio and risk-adjusted returns
-
-### Alert Types
-- High daily loss alerts
-- Drawdown warnings
-- Consecutive loss notifications
-- API connectivity issues
-- Model performance degradation
-
-### Logging
-- Comprehensive trade logging
-- AI signal generation logs
-- Error tracking and debugging
-- Performance reports
-
-## 🔧 Advanced Configuration
-
-### Model Customization
-```python
-# In ai_trader.py, modify model parameters
-self.models = {
-    'random_forest': RandomForestClassifier(
-        n_estimators=200,  # Increase for better accuracy
-        max_depth=15,      # Adjust complexity
-        random_state=42
-    ),
-    # ... other models
-}
-```
-
-### Risk Parameters
-```python
-# In risk_manager.py, adjust risk settings
-self.risk_per_trade = 0.01      # 1% risk per trade
-self.max_position_size = 0.05   # 5% max position
-self.max_daily_loss = 0.03      # 3% daily loss limit
-```
-
-### Trading Pairs
-```python
-# Add more trading pairs
-self.trading_pairs = [
-    'BTC/USD', 'ETH/USD', 'ADA/USD', 
-    'DOT/USD', 'LINK/USD'
-]
-```
-
-## 🛡️ Safety Features
-
-### Emergency Controls
-- **Emergency Stop**: Immediate halt of all trading
-- **Daily Loss Limits**: Automatic shutdown on excessive losses
-- **API Error Handling**: Graceful handling of connection issues
-- **Sandbox Mode**: Safe testing environment
-
-### Risk Controls
-- **Position Limits**: Maximum position size per trade
-- **Drawdown Limits**: Trading halt on excessive drawdown
-- **Consecutive Loss Limits**: Reduced trading after losses
-- **Market Hours**: Optional trading time restrictions
-
-## 📚 API Reference
-
-### Core Classes
-
-#### `KrakenClient`
-- `get_account_balance()`: Get account balance
-- `get_ticker(pair)`: Get current price
-- `place_market_order(pair, side, amount)`: Execute trade
-- `get_ohlc_data(pair, interval)`: Get historical data
-
-#### `MarketAnalyzer`
-- `collect_market_data(pair)`: Collect OHLC data
-- `calculate_technical_indicators(df)`: Calculate indicators
-- `detect_patterns(df)`: Detect candlestick patterns
-- `get_market_summary(pair)`: Comprehensive market analysis
-
-#### `AITrader`
-- `predict_signal(pair)`: Generate AI trading signal
-- `train_models(pair)`: Train ML models
-- `get_trading_recommendation(pair)`: Get trading advice
-
-#### `RiskManager`
-- `calculate_position_size(...)`: Calculate optimal position size
-- `validate_trade(...)`: Validate trade parameters
-- `check_stop_losses()`: Monitor stop loss levels
-
-#### `TradingExecutor`
-- `execute_trade(pair, signal, confidence)`: Execute trades
-- `get_portfolio_summary()`: Get portfolio status
-- `start_trading_session(pair)`: Begin automated trading
-
-## 🧪 Testing
-
-### Sandbox Testing
-1. Set `KRAKEN_SANDBOX=true` in .env
-2. Use Kraken sandbox API credentials
-3. Test with small amounts
-4. Monitor logs for any issues
-
-### Backtesting
-```python
-# Example backtesting script
-from market_analyzer import MarketAnalyzer
-from ai_trader import AITrader
-
-analyzer = MarketAnalyzer(kraken_client)
-ai_trader = AITrader(analyzer)
-
-# Get historical data
-df = analyzer.collect_market_data('BTC/USD', limit=1000)
-
-# Generate signals
-signals = []
-for i in range(100, len(df)):
-    historical_data = df.iloc[:i]
-    signal = ai_trader.predict_signal('BTC/USD')
-    signals.append(signal)
-```
-
-## 🚨 Important Disclaimers
-
-### Risk Warning
-- **High Risk**: Cryptocurrency trading involves substantial risk
-- **No Guarantees**: Past performance doesn't guarantee future results
-- **Loss Potential**: You may lose your entire investment
-- **Test First**: Always test in sandbox mode before live trading
-
-### Legal Compliance
-- **Regulatory Compliance**: Ensure compliance with local regulations
-- **Tax Implications**: Cryptocurrency trading may have tax implications
-- **Terms of Service**: Follow Kraken's terms of service
-- **Responsible Trading**: Only trade with money you can afford to lose
+MIT License - see LICENSE file for details
 
 ## 🤝 Contributing
 
@@ -277,44 +207,13 @@ for i in range(100, len(df)):
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+## 📞 Support
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-### Common Issues
-
-**API Connection Errors**
-- Verify API credentials
-- Check internet connection
-- Ensure API permissions are correct
-
-**Model Training Errors**
-- Check data availability
-- Verify feature calculations
-- Monitor memory usage
-
-**Trading Execution Errors**
-- Verify account balance
-- Check position limits
-- Monitor API rate limits
-
-### Getting Help
-- Check the logs in `logs/` directory
-- Review error messages carefully
-- Test in sandbox mode first
-- Start with small position sizes
-
-## 🔮 Future Enhancements
-
-- **Advanced ML Models**: Deep learning models, reinforcement learning
-- **Multi-Exchange Support**: Binance, Coinbase Pro, etc.
-- **Strategy Optimization**: Genetic algorithms, Bayesian optimization
-- **Web Interface**: Dashboard for monitoring and control
-- **Mobile Alerts**: Push notifications for important events
-- **Social Trading**: Copy trading features
+For issues and questions:
+- Check the troubleshooting section
+- Review API documentation at `/docs`
+- Open an issue on GitHub
 
 ---
 
-**Remember**: This is a sophisticated trading system. Start small, test thoroughly, and always prioritize risk management over profits.
+**Note**: This is a baseline implementation for educational and research purposes. Cryptocurrency trading involves significant risk, and this tool should not be used as the sole basis for trading decisions.
