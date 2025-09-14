@@ -81,14 +81,15 @@ class EnhancedAITrader:
                 time.sleep(1800)
     
     def learning_data_loop(self):
-        """Continuously collect learning data from market."""
-        print("🔄 Learning data collection loop started")
+        """Continuously collect learning data and generate predictions for learning."""
+        print("🔄 Learning data collection and prediction loop started")
         pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP']  # Removed DOGE/GBP for now
         
         while True:
             try:
-                print("📊 Collecting learning data...")
+                print("📊 Collecting learning data and generating predictions...")
                 successful_collections = 0
+                successful_predictions = 0
                 
                 for pair in pairs:
                     try:
@@ -97,16 +98,28 @@ class EnhancedAITrader:
                         if len(df) > 0:
                             print(f"✅ Collected data for {pair}: {len(df)} records")
                             successful_collections += 1
+                            
+                            # Generate prediction for learning (if model is trained)
+                            if self.is_trained:
+                                try:
+                                    prediction_result = self.predict_signal(pair)
+                                    if "error" not in prediction_result:
+                                        print(f"🔮 Generated learning prediction for {pair}")
+                                        successful_predictions += 1
+                                    else:
+                                        print(f"⚠️ Prediction failed for {pair}: {prediction_result['error']}")
+                                except Exception as e:
+                                    print(f"❌ Error generating prediction for {pair}: {e}")
                     except Exception as e:
                         print(f"❌ Error collecting data for {pair}: {e}")
                         # Continue with other pairs
                         continue
                 
-                print(f"✅ Learning data collection completed: {successful_collections}/{len(pairs)} pairs successful")
-                time.sleep(600)  # Collect every 10 minutes
+                print(f"✅ Learning cycle completed: {successful_collections}/{len(pairs)} data collections, {successful_predictions} predictions generated")
+                time.sleep(900)  # Collect every 15 minutes
             except Exception as e:
                 print(f"❌ Error in learning data collection: {e}")
-                time.sleep(600)
+                time.sleep(900)
     
     def should_retrain(self) -> bool:
         """Determine if model should be retrained."""
@@ -561,7 +574,8 @@ class EnhancedAITrader:
         try:
             pair_mapping = {
                 'BTC/GBP': 'XXBTZGBP', 'ETH/GBP': 'XETHZGBP', 'SOL/GBP': 'SOLGBP',
-                'XRP/GBP': 'XRPGBP', 'DOGE/GBP': 'XXDGZGBP'
+                'XRP/GBP': 'XRPGBP', 'DOGE/GBP': 'XXDGZGBP', 'LTC/GBP': 'LTCGBP',
+                'DOT/GBP': 'DOTGBP', 'LINK/GBP': 'LINKGBP', 'AVAX/GBP': 'AVAXGBP', 'ADA/GBP': 'ADAGBP'
             }
             
             kraken_pair = pair_mapping.get(pair)
@@ -578,7 +592,7 @@ class EnhancedAITrader:
             if pair:
                 pairs = [pair]
             else:
-                pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'DOGE/GBP']
+                pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'DOGE/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
             
             metrics = {}
             for p in pairs:
