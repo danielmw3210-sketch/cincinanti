@@ -138,6 +138,15 @@ const LoadingSpinner = styled.div`
 
 const getSymbolDescription = (symbol) => {
   const descriptions = {
+    'BTC/GBP': 'Bitcoin - The first and largest cryptocurrency',
+    'ETH/GBP': 'Ethereum - Smart contract platform and cryptocurrency',
+    'ADA/GBP': 'Cardano - Blockchain platform for smart contracts',
+    'SOL/GBP': 'Solana - High-performance blockchain platform',
+    'XRP/GBP': 'Ripple - Digital payment protocol',
+    'DOT/GBP': 'Polkadot - Multi-chain blockchain platform',
+    'LTC/GBP': 'Litecoin - Digital silver to Bitcoin\'s gold',
+    'LINK/GBP': 'Chainlink - Decentralized oracle network',
+    'AVAX/GBP': 'Avalanche - Smart contract platform',
     'BTC/USDT': 'Bitcoin - The first and largest cryptocurrency',
     'ETH/USDT': 'Ethereum - Smart contract platform and cryptocurrency',
     'BNB/USDT': 'Binance Coin - Native token of Binance exchange',
@@ -155,6 +164,15 @@ const getSymbolDescription = (symbol) => {
 
 const getSymbolIcon = (symbol) => {
   const icons = {
+    'BTC/GBP': '₿',
+    'ETH/GBP': 'Ξ',
+    'ADA/GBP': '🔵',
+    'SOL/GBP': '🟣',
+    'XRP/GBP': '🔵',
+    'DOT/GBP': '🟣',
+    'LTC/GBP': 'Ł',
+    'LINK/GBP': '🔗',
+    'AVAX/GBP': '🔺',
     'BTC/USDT': '₿',
     'ETH/USDT': 'Ξ',
     'BNB/USDT': '🟡',

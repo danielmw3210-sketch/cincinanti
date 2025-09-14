@@ -83,7 +83,7 @@ class EnhancedAITrader:
     def learning_data_loop(self):
         """Continuously collect learning data and generate predictions for learning."""
         print("🔄 Learning data collection and prediction loop started")
-        pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP']  # Removed DOGE/GBP for now
+        pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']  # All major cryptocurrencies except DOGE
         
         while True:
             try:
@@ -371,7 +371,7 @@ class EnhancedAITrader:
                 return
             
             # Get learning data for all pairs
-            pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'DOGE/GBP']
+            pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
             
             # Collect all learning data
             all_learning_data = []
@@ -592,7 +592,7 @@ class EnhancedAITrader:
             if pair:
                 pairs = [pair]
             else:
-                pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'DOGE/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
+                pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
             
             metrics = {}
             for p in pairs:
