@@ -34,7 +34,7 @@ fi
 # Check if remote exists
 if ! git remote get-url origin >/dev/null 2>&1; then
     echo "🔗 Please add your remote repository:"
-    echo "git remote add origin https://github.com/yourusername/crypto-forecast.git"
+    echo "git remote add origin https://github.com/yourusername/Cincinnati.git"
     echo ""
     echo "Then run: git push -u origin main"
     exit 1
