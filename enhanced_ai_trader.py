@@ -15,41 +15,70 @@ from typing import Dict, List, Any, Optional
 import json
 import threading
 import time
+import logging
+import traceback
 from prediction_storage import PredictionStorage
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('ai_trader.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class EnhancedAITrader:
     def __init__(self):
-        self.model = None
-        self.scaler = StandardScaler()
-        self.is_trained = False
-        self.model_version = "1.0"
+        # Separate models for each cryptocurrency
+        self.models = {}  # Dictionary to store models per pair
+        self.scalers = {}  # Dictionary to store scalers per pair
+        self.is_trained = {}  # Dictionary to track training status per pair
+        self.model_version = "2.0"
         self.storage = PredictionStorage()
         self.retrain_interval_hours = 24  # Retrain every 24 hours
-        self.last_retrain = None
+        self.last_retrain = {}
         self.performance_threshold = 0.6  # Minimum accuracy to consider model good
         self.learning_rate = 0.1  # How much to adjust model with new data
+        
+        # Available pairs for separate models
+        self.available_pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
+        
+        # Initialize models and scalers for each pair
+        for pair in self.available_pairs:
+            self.models[pair] = None
+            self.scalers[pair] = StandardScaler()
+            self.is_trained[pair] = False
+            self.last_retrain[pair] = None
         
         # Start background learning process
         self.start_background_learning()
     
     def start_background_learning(self):
         """Start background processes for continuous learning."""
-        # Start outcome evaluation thread
-        outcome_thread = threading.Thread(target=self.evaluate_outcomes_loop, daemon=True, name="OutcomeEvaluator")
-        outcome_thread.start()
-        
-        # Start retraining thread
-        retrain_thread = threading.Thread(target=self.retrain_loop, daemon=True, name="ModelRetrainer")
-        retrain_thread.start()
-        
-        # Start periodic learning data collection
-        learning_thread = threading.Thread(target=self.learning_data_loop, daemon=True, name="LearningDataCollector")
-        learning_thread.start()
-        
-        print("🔄 Background learning processes started")
-        print(f"   - Outcome Evaluator: {outcome_thread.is_alive()}")
-        print(f"   - Model Retrainer: {retrain_thread.is_alive()}")
-        print(f"   - Learning Data Collector: {learning_thread.is_alive()}")
+        try:
+            # Start outcome evaluation thread
+            outcome_thread = threading.Thread(target=self.evaluate_outcomes_loop, daemon=True, name="OutcomeEvaluator")
+            outcome_thread.start()
+            
+            # Start retraining thread
+            retrain_thread = threading.Thread(target=self.retrain_loop, daemon=True, name="ModelRetrainer")
+            retrain_thread.start()
+            
+            # Start periodic learning data collection
+            learning_thread = threading.Thread(target=self.learning_data_loop, daemon=True, name="LearningDataCollector")
+            learning_thread.start()
+            
+            logger.info("🔄 Background learning processes started")
+            logger.info(f"   - Outcome Evaluator: {outcome_thread.is_alive()}")
+            logger.info(f"   - Model Retrainer: {retrain_thread.is_alive()}")
+            logger.info(f"   - Learning Data Collector: {learning_thread.is_alive()}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start background learning processes: {e}")
+            logger.error(traceback.format_exc())
     
     def evaluate_outcomes_loop(self):
         """Continuously evaluate prediction outcomes."""
@@ -254,24 +283,81 @@ class EnhancedAITrader:
         return self.calculate_technical_indicators(df)
     
     def calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate technical indicators."""
+        """Calculate comprehensive technical indicators."""
+        # Basic indicators
         df['sma_5'] = df['price'].rolling(window=5).mean()
         df['sma_20'] = df['price'].rolling(window=20).mean()
+        df['sma_50'] = df['price'].rolling(window=50).mean()
         df['rsi'] = self.calculate_rsi(df['price'])
         df['price_change'] = df['price'].pct_change()
         df['volatility'] = df['price_change'].rolling(window=5).std()
         
+        # MACD (Moving Average Convergence Divergence)
+        df['macd'], df['macd_signal'], df['macd_histogram'] = self.calculate_macd(df['price'])
+        
+        # Bollinger Bands
+        df['bb_upper'], df['bb_middle'], df['bb_lower'], df['bb_width'], df['bb_position'] = self.calculate_bollinger_bands(df['price'])
+        
+        # Stochastic Oscillator
+        df['stoch_k'], df['stoch_d'] = self.calculate_stochastic(df)
+        
+        # Williams %R
+        df['williams_r'] = self.calculate_williams_r(df)
+        
+        # Volume indicators (if volume data available)
+        if 'volume' in df.columns:
+            df['volume_sma'] = df['volume'].rolling(window=20).mean()
+            df['volume_ratio'] = df['volume'] / df['volume_sma']
+            df['obv'] = self.calculate_obv(df)
+            df['volume_price_trend'] = self.calculate_vpt(df)
+        else:
+            # Create mock volume data for demonstration
+            df['volume'] = np.random.uniform(1000, 10000, len(df))
+            df['volume_sma'] = df['volume'].rolling(window=20).mean()
+            df['volume_ratio'] = df['volume'] / df['volume_sma']
+            df['obv'] = self.calculate_obv(df)
+            df['volume_price_trend'] = self.calculate_vpt(df)
+        
+        # Additional momentum indicators
+        df['momentum'] = df['price'] / df['price'].shift(10)
+        df['rate_of_change'] = df['price'].pct_change(periods=10)
+        
         return df
     
     def store_learning_data_from_df(self, pair: str, df: pd.DataFrame):
-        """Store learning data from DataFrame for future retraining."""
+        """Store comprehensive learning data from DataFrame for future retraining."""
         for timestamp, row in df.iterrows():
             features = {
+                # Basic indicators
                 'sma_5': row.get('sma_5', 0),
                 'sma_20': row.get('sma_20', 0),
+                'sma_50': row.get('sma_50', 0),
                 'rsi': row.get('rsi', 50),
                 'price_change': row.get('price_change', 0),
-                'volatility': row.get('volatility', 0)
+                'volatility': row.get('volatility', 0),
+                # MACD
+                'macd': row.get('macd', 0),
+                'macd_signal': row.get('macd_signal', 0),
+                'macd_histogram': row.get('macd_histogram', 0),
+                # Bollinger Bands
+                'bb_upper': row.get('bb_upper', 0),
+                'bb_middle': row.get('bb_middle', 0),
+                'bb_lower': row.get('bb_lower', 0),
+                'bb_width': row.get('bb_width', 0),
+                'bb_position': row.get('bb_position', 0.5),
+                # Stochastic
+                'stoch_k': row.get('stoch_k', 50),
+                'stoch_d': row.get('stoch_d', 50),
+                # Williams %R
+                'williams_r': row.get('williams_r', -50),
+                # Volume indicators
+                'volume_sma': row.get('volume_sma', 0),
+                'volume_ratio': row.get('volume_ratio', 1),
+                'obv': row.get('obv', 0),
+                'volume_price_trend': row.get('volume_price_trend', 0),
+                # Momentum
+                'momentum': row.get('momentum', 1),
+                'rate_of_change': row.get('rate_of_change', 0)
             }
             
             # Determine actual outcome (1 for positive change, 0 for negative)
@@ -288,10 +374,88 @@ class EnhancedAITrader:
         rsi = 100 - (100 / (1 + rs))
         return rsi
     
+    def calculate_macd(self, prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> tuple:
+        """Calculate MACD indicator."""
+        ema_fast = prices.ewm(span=fast).mean()
+        ema_slow = prices.ewm(span=slow).mean()
+        macd = ema_fast - ema_slow
+        macd_signal = macd.ewm(span=signal).mean()
+        macd_histogram = macd - macd_signal
+        return macd, macd_signal, macd_histogram
+    
+    def calculate_bollinger_bands(self, prices: pd.Series, window: int = 20, num_std: float = 2) -> tuple:
+        """Calculate Bollinger Bands."""
+        sma = prices.rolling(window=window).mean()
+        std = prices.rolling(window=window).std()
+        upper = sma + (std * num_std)
+        lower = sma - (std * num_std)
+        width = (upper - lower) / sma
+        position = (prices - lower) / (upper - lower)
+        return upper, sma, lower, width, position
+    
+    def calculate_stochastic(self, df: pd.DataFrame, k_window: int = 14, d_window: int = 3) -> tuple:
+        """Calculate Stochastic Oscillator."""
+        low_min = df['low'].rolling(window=k_window).min()
+        high_max = df['high'].rolling(window=k_window).max()
+        k_percent = 100 * ((df['price'] - low_min) / (high_max - low_min))
+        d_percent = k_percent.rolling(window=d_window).mean()
+        return k_percent, d_percent
+    
+    def calculate_williams_r(self, df: pd.DataFrame, window: int = 14) -> pd.Series:
+        """Calculate Williams %R."""
+        high_max = df['high'].rolling(window=window).max()
+        low_min = df['low'].rolling(window=window).min()
+        williams_r = -100 * ((high_max - df['price']) / (high_max - low_min))
+        return williams_r
+    
+    def calculate_obv(self, df: pd.DataFrame) -> pd.Series:
+        """Calculate On-Balance Volume."""
+        obv = np.zeros(len(df))
+        obv[0] = df['volume'].iloc[0]
+        
+        for i in range(1, len(df)):
+            if df['price'].iloc[i] > df['price'].iloc[i-1]:
+                obv[i] = obv[i-1] + df['volume'].iloc[i]
+            elif df['price'].iloc[i] < df['price'].iloc[i-1]:
+                obv[i] = obv[i-1] - df['volume'].iloc[i]
+            else:
+                obv[i] = obv[i-1]
+        
+        return pd.Series(obv, index=df.index)
+    
+    def calculate_vpt(self, df: pd.DataFrame) -> pd.Series:
+        """Calculate Volume Price Trend."""
+        vpt = np.zeros(len(df))
+        vpt[0] = 0
+        
+        for i in range(1, len(df)):
+            price_change = (df['price'].iloc[i] - df['price'].iloc[i-1]) / df['price'].iloc[i-1]
+            vpt[i] = vpt[i-1] + (df['volume'].iloc[i] * price_change)
+        
+        return pd.Series(vpt, index=df.index)
+    
     def prepare_features(self, df: pd.DataFrame) -> np.ndarray:
-        """Prepare features for XGBoost model."""
-        features = ['sma_5', 'sma_20', 'rsi', 'price_change', 'volatility']
-        X = df[features].values
+        """Prepare comprehensive features for XGBoost model."""
+        features = [
+            # Basic indicators
+            'sma_5', 'sma_20', 'sma_50', 'rsi', 'price_change', 'volatility',
+            # MACD
+            'macd', 'macd_signal', 'macd_histogram',
+            # Bollinger Bands
+            'bb_upper', 'bb_middle', 'bb_lower', 'bb_width', 'bb_position',
+            # Stochastic
+            'stoch_k', 'stoch_d',
+            # Williams %R
+            'williams_r',
+            # Volume indicators
+            'volume_sma', 'volume_ratio', 'obv', 'volume_price_trend',
+            # Momentum
+            'momentum', 'rate_of_change'
+        ]
+        
+        # Filter to only include features that exist in the dataframe
+        available_features = [f for f in features if f in df.columns]
+        X = df[available_features].fillna(0).values
         return X
     
     def create_labels(self, df: pd.DataFrame) -> np.ndarray:
@@ -301,9 +465,12 @@ class EnhancedAITrader:
         labels = np.where(price_change > 0.01, 1, 0)  # Buy if price increases > 1%
         return labels[:-1]
     
-    def train_model(self, pair: str = "BTC/USDT") -> Dict[str, Any]:
-        """Train XGBoost model with enhanced learning capabilities."""
+    def train_model(self, pair: str = "BTC/GBP") -> Dict[str, Any]:
+        """Train separate XGBoost model for specific cryptocurrency pair."""
         try:
+            if pair not in self.available_pairs:
+                return {"success": False, "error": f"Pair {pair} not supported"}
+            
             print(f"🔄 Training enhanced model for {pair}...")
             
             # Get fresh market data
@@ -326,39 +493,51 @@ class EnhancedAITrader:
             X = np.nan_to_num(X, nan=0.0)
             y = np.nan_to_num(y, nan=0.0)
             
-            # Scale features
-            X_scaled = self.scaler.fit_transform(X)
+            # Scale features using pair-specific scaler
+            X_scaled = self.scalers[pair].fit_transform(X)
             
-            # Train model
-            self.model = xgb.XGBClassifier(
-                n_estimators=100,  # Increased for better performance
-                max_depth=6,       # Increased for more complex patterns
+            # Train pair-specific model
+            self.models[pair] = xgb.XGBClassifier(
+                n_estimators=150,  # Increased for better performance
+                max_depth=8,       # Increased for more complex patterns
                 learning_rate=0.1,
                 random_state=42,
                 eval_metric='logloss'
             )
             
-            self.model.fit(X_scaled, y)
-            self.is_trained = True
-            self.last_retrain = datetime.now()
+            self.models[pair].fit(X_scaled, y)
+            self.is_trained[pair] = True
+            self.last_retrain[pair] = datetime.now()
             
             # Evaluate performance
-            predictions = self.model.predict(X_scaled)
+            predictions = self.models[pair].predict(X_scaled)
             accuracy = accuracy_score(y, predictions)
             
-            print(f"✅ Model training completed - Accuracy: {accuracy:.3f}")
+            print(f"✅ Model training completed for {pair} - Accuracy: {accuracy:.3f}")
             
             return {
                 "success": True,
                 "accuracy": float(accuracy),
                 "samples": len(X),
                 "model_version": self.model_version,
-                "features": ['sma_5', 'sma_20', 'rsi', 'price_change', 'volatility']
+                "pair": pair,
+                "features": self.get_feature_names()
             }
             
         except Exception as e:
-            print(f"❌ Training error: {e}")
+            print(f"❌ Training error for {pair}: {e}")
             return {"success": False, "error": str(e)}
+    
+    def get_feature_names(self) -> List[str]:
+        """Get list of feature names used in the model."""
+        return [
+            'sma_5', 'sma_20', 'sma_50', 'rsi', 'price_change', 'volatility',
+            'macd', 'macd_signal', 'macd_histogram',
+            'bb_upper', 'bb_middle', 'bb_lower', 'bb_width', 'bb_position',
+            'stoch_k', 'stoch_d', 'williams_r',
+            'volume_sma', 'volume_ratio', 'obv', 'volume_price_trend',
+            'momentum', 'rate_of_change'
+        ]
     
     def retrain_with_learning_data(self):
         """Retrain model using stored learning data."""
@@ -447,15 +626,18 @@ class EnhancedAITrader:
             traceback.print_exc()
     
     def predict_signal(self, pair: str) -> Dict[str, Any]:
-        """Make prediction with enhanced learning capabilities."""
+        """Make prediction with enhanced learning capabilities using pair-specific model."""
         try:
             print(f"🔮 Predicting signal for {pair}")
             
-            if not self.is_trained:
-                print("⚠️ Model not trained, training now...")
+            if pair not in self.available_pairs:
+                return {"error": f"Pair {pair} not supported"}
+            
+            if not self.is_trained.get(pair, False):
+                print(f"⚠️ Model for {pair} not trained, training now...")
                 train_result = self.train_model(pair)
                 if not train_result["success"]:
-                    return {"error": f"Failed to train model: {train_result['error']}"}
+                    return {"error": f"Failed to train model for {pair}: {train_result['error']}"}
             
             # Get market data
             df = self.get_market_data(pair)
@@ -464,11 +646,11 @@ class EnhancedAITrader:
             
             # Prepare features
             X = self.prepare_features(df)
-            X_scaled = self.scaler.transform(X)
+            X_scaled = self.scalers[pair].transform(X)
             
-            # Make prediction
-            prediction_proba = self.model.predict_proba(X_scaled[-1:])[0]
-            prediction = self.model.predict(X_scaled[-1:])[0]
+            # Make prediction using pair-specific model
+            prediction_proba = self.models[pair].predict_proba(X_scaled[-1:])[0]
+            prediction = self.models[pair].predict(X_scaled[-1:])[0]
             
             # Get current price
             current_price = float(df['price'].iloc[-1])
@@ -592,18 +774,24 @@ class EnhancedAITrader:
             if pair:
                 pairs = [pair]
             else:
-                pairs = ['BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP', 'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP']
+                pairs = self.available_pairs
             
             metrics = {}
             for p in pairs:
                 performance = self.storage.get_prediction_accuracy(p, days=7)
                 metrics[p] = performance
             
+            # Calculate overall training status
+            trained_pairs = sum(1 for p in pairs if self.is_trained.get(p, False))
+            overall_trained = trained_pairs > 0
+            
             return {
                 'performance_by_pair': metrics,
                 'model_version': self.model_version,
-                'last_retrain': self.last_retrain.isoformat() if self.last_retrain else None,
-                'is_trained': self.is_trained
+                'last_retrain': {p: self.last_retrain[p].isoformat() if self.last_retrain[p] else None for p in pairs},
+                'is_trained': overall_trained,
+                'trained_pairs': trained_pairs,
+                'total_pairs': len(pairs)
             }
             
         except Exception as e:

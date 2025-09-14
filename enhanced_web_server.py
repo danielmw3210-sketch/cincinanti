@@ -103,13 +103,19 @@ async def serve_frontend():
 async def health_check():
     """Enhanced health check with learning status."""
     trader = get_ai_trader()
+    # Calculate overall model status
+    trained_pairs = sum(1 for pair in trader.available_pairs if trader.is_trained.get(pair, False))
+    overall_trained = trained_pairs > 0
+    
     return {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '2.0.0',
-        'model_loaded': trader.is_trained,
+        'model_loaded': overall_trained,
         'model_version': trader.model_version,
-        'last_retrain': trader.last_retrain.isoformat() if trader.last_retrain else None,
+        'trained_pairs': trained_pairs,
+        'total_pairs': len(trader.available_pairs),
+        'last_retrain': {pair: trader.last_retrain[pair].isoformat() if trader.last_retrain[pair] else None for pair in trader.available_pairs},
         'learning_active': True
     }
 
@@ -117,11 +123,9 @@ async def health_check():
 @app.get("/symbols")
 async def get_symbols():
     """Get available trading symbols."""
+    trader = get_ai_trader()
     return {
-        'symbols': [
-            'BTC/GBP', 'ETH/GBP', 'SOL/GBP', 'XRP/GBP',
-            'LTC/GBP', 'DOT/GBP', 'LINK/GBP', 'AVAX/GBP', 'ADA/GBP'
-        ]
+        'symbols': trader.available_pairs
     }
 
 # Enhanced forecast endpoint
